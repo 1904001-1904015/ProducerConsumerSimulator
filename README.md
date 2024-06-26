@@ -56,7 +56,3 @@ java -cp bin com.example.GrocerySimulator
 ## Requirements
 
 - Java 8 or higher
-
----
-
-This concise README.md provides a brief overview, instructions for running the simulations, key parameters, and expected output.

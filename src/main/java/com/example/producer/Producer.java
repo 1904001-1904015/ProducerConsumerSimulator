@@ -1,19 +1,20 @@
 package com.example.producer;
 
 import com.example.model.Customer;
-import com.example.queue.GroceryQueues;
+import com.example.queue.Queues;
 
+import java.util.Queue;
 import java.util.Random;
 
 public class Producer implements Runnable {
-    private final GroceryQueues groceryQueues;
+    private final Queues groceryQueues;
     private final Random random;
     private final int minimumArrivalTime;
     private final int maximumArrivalTime;
     private final int minimumServiceTime;
     private final int maximumServiceTime;
 
-    public Producer(GroceryQueues groceryQueues, int minimumArrivalTime, int maximumArrivalTime, int minimumServiceTime, int maximumServiceTime) {
+    public Producer(Queues groceryQueues, int minimumArrivalTime, int maximumArrivalTime, int minimumServiceTime, int maximumServiceTime) {
         this.groceryQueues = groceryQueues;
         this.random = new Random();
         this.minimumArrivalTime = minimumArrivalTime;

@@ -1,60 +1,60 @@
 package com.example;
 
-import com.example.consumer.Consumer;
-import com.example.distributor.Distributor;
-import com.example.model.Customer;
+import com.example.consumer.BankConsumer;
 import com.example.producer.Producer;
-import com.example.queue.GroceryQueues;
+import com.example.queue.BankQueues;
 
-public class App {
+public class BankSimulator {
+
+    public static final int numberOfQueues = 3;
+    public static final int maxQueueLength = 5;
+    private static final int scale_down = 1000;
+    private static final int millisecondsInSecond = 1000 / scale_down;
+    private static final int millisecondsInMinute = 60 * millisecondsInSecond;
+    private static final int millisecondsInHour = 60 * millisecondsInMinute;
+    public static final double simulationDurationMinutes = 2 * millisecondsInHour;
+    public static final int minimumServiceTime = 60 * millisecondsInSecond;
+    public static final int maximumServiceTime = 300 * millisecondsInSecond;
+    public static final int minimumArrivalTime = 20 * millisecondsInSecond;
+    public static final int maximumArrivalTime = 60 * millisecondsInSecond;
+    public static final double maximum_waiting_time_in_waiting_queue = 10 * millisecondsInSecond;
+
     public static void main(String[] args) {
-        int numberOfQueues = 5;
-        int maxQueueLength = 5;
-        int minimumServiceTime = 60;
-        int maximumServiceTime = 300;
-        int minimumArrivalTime = 20;
-        int maximumArrivalTime = 60;
-        double simulationDurationMinutes = 5 / 60.0;
+        System.out.println("Starting simulation... " + simulationDurationMinutes);
 
-        GroceryQueues groceryQueues = new GroceryQueues(numberOfQueues, maxQueueLength);
+        BankQueues groceryQueues = new BankQueues(maxQueueLength);
 
         Producer producer = new Producer(groceryQueues, minimumArrivalTime, maximumArrivalTime, minimumServiceTime, maximumServiceTime);
         Thread producerThread = new Thread(producer);
-        Consumer[] consumers = new Consumer[numberOfQueues];
+        BankConsumer[] groceryConsumers = new BankConsumer[numberOfQueues];
         Thread[] consumerThreads = new Thread[numberOfQueues];
-        Distributor distributor = new Distributor(groceryQueues);
-        Thread distributorThread = new Thread(distributor);
-        distributorThread.start();
+
         for (int i = 0; i < numberOfQueues; i++) {
-            consumers[i] = new Consumer(groceryQueues, i, distributorThread);
-            consumerThreads[i] = new Thread(consumers[i]);
+            groceryConsumers[i] = new BankConsumer(groceryQueues, i);
+            consumerThreads[i] = new Thread(groceryConsumers[i]);
             consumerThreads[i].start();
         }
 
         producerThread.start();
 
-
-
         try {
-            Thread.sleep((long) (simulationDurationMinutes * 60 * 1000));
+            Thread.sleep((long) (simulationDurationMinutes));
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.currentThread().interrupt();
         }
+
         producerThread.interrupt();
-        distributor.requestShutdown();
-        distributorThread.interrupt();
         for (Thread consumerThread : consumerThreads) {
             consumerThread.interrupt();
         }
 
-
         try {
-          distributorThread.join();
+            producerThread.join();
             for (Thread consumerThread : consumerThreads) {
                 consumerThread.join();
             }
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.currentThread().interrupt();
         }
 
         System.out.println("Simulation completed.");
@@ -62,23 +62,138 @@ public class App {
         System.out.println("Total customers served: " + groceryQueues.getTotalCustomersServed());
         System.out.println("Total customers left without being served: " + groceryQueues.getTotalCustomersLeft());
         System.out.println("Average service time: " + groceryQueues.getAverageServiceTime());
-        System.out.println("hello, "+ Customer.total_served);
-        System.out.println("hello, "+ Consumer.total_served);
+    }
+}
+package com.example;
+
+import com.example.consumer.GroceryConsumer;
+import com.example.distributor.Distributor;
+import com.example.producer.Producer;
+import com.example.queue.GroceryQueues;
+
+public class GrocerySimulator {
+
+    private static final int scale_down = 1000;
+    private static final int millisecondsInSecond = 1000/ scale_down;
+    private static final int millisecondsInMinute = 60 * millisecondsInSecond;
+    private static final int millisecondsInHour = 60 * millisecondsInMinute;
+
+
+    public static final int numberOfQueues = 3;
+    public static final int maxQueueLength = 2;
+    public static final int minimumServiceTime = 60*millisecondsInSecond;
+    public static final int maximumServiceTime = 300*millisecondsInSecond;
+    public static final int minimumArrivalTime = 20*millisecondsInSecond;
+    public static final int maximumArrivalTime = 60*millisecondsInSecond;
+    public static final double maximum_waiting_time_in_waiting_queue = 10*millisecondsInSecond;
+    public static final double simulationDurationMinutes = 2*millisecondsInHour;
+
+
+
+    public static void main(String[] args) {
+        System.out.println("Starting simulation... " + simulationDurationMinutes);
+
+        GroceryQueues groceryQueues = new GroceryQueues(numberOfQueues, maxQueueLength);
+
+        Producer producer = new Producer(groceryQueues, minimumArrivalTime, maximumArrivalTime, minimumServiceTime, maximumServiceTime);
+        Thread producerThread = new Thread(producer);
+        GroceryConsumer[] groceryConsumers = new GroceryConsumer[numberOfQueues];
+        Thread[] consumerThreads = new Thread[numberOfQueues];
+        Distributor distributor = new Distributor(groceryQueues);
+        Thread distributorThread = new Thread(distributor);
+
+        distributorThread.start();
+        for (int i = 0; i < numberOfQueues; i++) {
+            groceryConsumers[i] = new GroceryConsumer(groceryQueues, i, distributorThread);
+            consumerThreads[i] = new Thread(groceryConsumers[i]);
+            consumerThreads[i].start();
+        }
+
+        producerThread.start();
+
+        try {
+            Thread.sleep((long) (simulationDurationMinutes));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        producerThread.interrupt();
+        distributor.requestShutdown();
+        distributorThread.interrupt();
+        for (Thread consumerThread : consumerThreads) {
+            consumerThread.interrupt();
+        }
+
+        try {
+            producerThread.join();
+            distributorThread.join();
+            for (Thread consumerThread : consumerThreads) {
+                consumerThread.join();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        System.out.println("Simulation completed.");
+        System.out.println("Total customers arrived: " + groceryQueues.getTotalCustomersArrived());
+        System.out.println("Total customers served: " + groceryQueues.getTotalCustomersServed());
+        System.out.println("Total customers left without being served: " + groceryQueues.getTotalCustomersLeft());
+        System.out.println("Average service time: " + groceryQueues.getAverageServiceTime());
     }
 }
 package com.example.consumer;
 
 import com.example.model.Customer;
-import com.example.queue.GroceryQueues;
+import com.example.queue.Queues;
 
-public class Consumer implements Runnable {
-    private final GroceryQueues groceryQueues;
+public class BankConsumer implements Runnable {
+    private final Queues bankQueues;
+    private final int consumer_id;
+    private boolean shutdownRequested = false;
+
+    public BankConsumer(Queues bankQueues, int queueIndex) {
+        this.bankQueues = bankQueues;
+        this.consumer_id = queueIndex;
+    }
+
+
+    @Override
+    public void run() {
+        while (!shutdownRequested) {
+            try {
+                Customer customer = bankQueues.getNextCustomer(consumer_id);
+                if (customer != null) {
+                    // Thread.sleep(customer.getServiceTime());
+                    // as the Thread might be interupted, that's why Thread.sleep is replaced with the following code
+                    long endTime = System.currentTimeMillis() + customer.getServiceTime();
+                    while (System.currentTimeMillis() < endTime) {
+                        // Busy waiting
+                    }
+                    customer.setServed(true); // Mark the customer as served
+                    System.out.println("Customer served: " + customer.getCustomerId() + " at server " + (consumer_id + 1));
+                } else {
+                    Thread.sleep(100); // Short wait to avoid busy waiting
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Acknowledge the interrupt
+                shutdownRequested = true; // Set the shutdown flag
+                System.out.println("Consumer " + (consumer_id + 1) + " thread interrupted.");
+            }
+        }
+    }
+}
+package com.example.consumer;
+
+import com.example.model.Customer;
+import com.example.queue.Queues;
+
+public class GroceryConsumer implements Runnable {
+    private final Queues groceryQueues;
     private final int queueIndex;
     private boolean shutdownRequested = false;
-    private Thread distributorThread;
-    public static int total_served = 0;
+    private final Thread distributorThread;
 
-    public Consumer(GroceryQueues groceryQueues, int queueIndex, Thread distributorThread) {
+    public GroceryConsumer(Queues groceryQueues, int queueIndex, Thread distributorThread) {
         this.groceryQueues = groceryQueues;
         this.queueIndex = queueIndex;
         this.distributorThread = distributorThread;
@@ -91,45 +206,37 @@ public class Consumer implements Runnable {
     @Override
     public void run() {
         while (!shutdownRequested || !groceryQueues.isQueueEmpty(queueIndex) || this.distributorThread.isAlive()) {
-            System.out.println("Consumer " + (queueIndex + 1) + " is running.");
             try {
-                System.out.println((queueIndex + 1) + " => " + groceryQueues.queues.get(queueIndex).size());
-                System.out.println("x " + (queueIndex + 1) + " " + shutdownRequested + " " + !groceryQueues.isQueueEmpty(queueIndex) + " " + this.distributorThread.isAlive());
                 Customer customer = groceryQueues.getNextCustomer(queueIndex);
-                System.out.println("y " + (queueIndex + 1));
                 if (customer != null) {
-// for inturrupting the thread is not working
-                    Thread.sleep(customer.getServiceTime());
-
-                    total_served++;
+                    // Thread.sleep(customer.getServiceTime());
+                    // as the Thread might be interupted, that's why Thread.sleep is replaced with the following code
+                    long endTime = System.currentTimeMillis()+customer.getServiceTime();
+                    while(System.currentTimeMillis()<endTime){
+                        // Busy waiting
+                    }
                     customer.setServed(true); // Mark the customer as served
-
-                    System.out.println("Customer served: " + customer.getCustomerId() + " by the server: " + (queueIndex + 1));
+                    System.out.println("Customer served: " + customer.getCustomerId()+" at queue "+(queueIndex+1));
                 } else {
                     Thread.sleep(100); // Short wait to avoid busy waiting
-
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt(); // Acknowledge the interrupt
-
                 shutdownRequested = true; // Set the shutdown flag
-            } catch (Exception e) {
-                System.out.println("Exception: " + e);
-                System.out.println("============================================================================================================");
+                System.out.println("Consumer "+ (queueIndex+1)+" thread interrupted.");
             }
         }
-        System.out.println("Consumer " + (queueIndex + 1) + " finished processing remaining customers. " + groceryQueues.queues.get(queueIndex).size());
     }
 }
 package com.example.distributor;
 
-import com.example.queue.GroceryQueues;
+import com.example.queue.Queues;
 
 public class Distributor implements Runnable {
-    private final GroceryQueues groceryQueues;
+    private final Queues groceryQueues;
     private volatile boolean shutdownRequested = false;
 
-    public Distributor(GroceryQueues groceryQueues) {
+    public Distributor(Queues groceryQueues) {
         this.groceryQueues = groceryQueues;
     }
 
@@ -137,29 +244,16 @@ public class Distributor implements Runnable {
         shutdownRequested = true;
     }
 
-//    @Override
-//    public void run() {
-//        try {
-//            while (!shutdownRequested) {
-//                groceryQueues.distributeCustomers();
-//            }
-//        } catch (InterruptedException e) {
-//            Thread.currentThread().interrupt();
-//        }
-//        System.out.println("Distributor finished processing remaining customers.");
-//    }
     @Override
     public void run() {
         while (!shutdownRequested || !groceryQueues.isWaitingQueueEmpty()) {
             try {
                 groceryQueues.distributeCustomers();
             } catch (InterruptedException e) {
-                //Thread.currentThread().interrupt(); // Acknowledge the interrupt
+                Thread.currentThread().interrupt(); // Acknowledge the interrupt
                 shutdownRequested = true; // Set the shutdown flag
             }
         }
-        System.out.println("Distributor finished processing remaining customers. " + groceryQueues.waitingQueue.size());
-        //notifyAll();
     }
 }
 package com.example.model;
@@ -172,7 +266,6 @@ public class Customer {
     private final int serviceTime;
     private boolean served;
     private boolean leftUnserved;
-    public static int total_served = 0;
 
     public Customer(int serviceTime) {
         this.arrivalTime = System.currentTimeMillis();
@@ -196,7 +289,6 @@ public class Customer {
 
     public void setServed(boolean served) {
         this.served = served;
-        total_served++;
     }
 
     public boolean isLeftUnserved() {
@@ -214,19 +306,20 @@ public class Customer {
 package com.example.producer;
 
 import com.example.model.Customer;
-import com.example.queue.GroceryQueues;
+import com.example.queue.Queues;
 
+import java.util.Queue;
 import java.util.Random;
 
 public class Producer implements Runnable {
-    private final GroceryQueues groceryQueues;
+    private final Queues groceryQueues;
     private final Random random;
     private final int minimumArrivalTime;
     private final int maximumArrivalTime;
     private final int minimumServiceTime;
     private final int maximumServiceTime;
 
-    public Producer(GroceryQueues groceryQueues, int minimumArrivalTime, int maximumArrivalTime, int minimumServiceTime, int maximumServiceTime) {
+    public Producer(Queues groceryQueues, int minimumArrivalTime, int maximumArrivalTime, int minimumServiceTime, int maximumServiceTime) {
         this.groceryQueues = groceryQueues;
         this.random = new Random();
         this.minimumArrivalTime = minimumArrivalTime;
@@ -248,22 +341,88 @@ public class Producer implements Runnable {
                 Thread.sleep(arrivalTime);
                 System.out.println("Customer arrived: " + customer.getCustomerId());
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt(); // Set the interrupted flag
+                Thread.currentThread().interrupt(); // Acknowledge the interrupt
             }
         }
-        System.out.println("No more customers will arrive.");
-//        System.out.println("================================================================================================");
     }
 }
 package com.example.queue;
 
+import com.example.GrocerySimulator;
 import com.example.model.Customer;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Queue;
 
-public class GroceryQueues {
+public class BankQueues extends Queues {
+    public final Queue<Customer> waitingQueue;
+    private final int maxQueueLength;
+    private int totalCustomersArrived = 0;
+    private int totalCustomersServed = 0;
+    private int totalCustomersLeft = 0;
+    private long totalServiceTime = 0;
+
+    public BankQueues( int maxQueueLength) {
+         this.maxQueueLength = maxQueueLength;
+        this.waitingQueue = new LinkedList<>();
+    }
+
+    public synchronized void addCustomer(Customer customer) {
+        totalCustomersArrived++;
+        waitingQueue.offer(customer);
+        notifyAll(); // Notify distributor thread that a new customer has been added
+    }
+
+    public synchronized Customer getNextCustomer(int queueIndex) throws InterruptedException {
+        while (waitingQueue.isEmpty()) {
+            wait(); // Wait until a customer is available
+        }
+
+        Customer customer = waitingQueue.poll();
+         if (customer != null) {
+            totalServiceTime += customer.getServiceTime();
+            totalCustomersServed++;
+        }
+        return customer;
+    }
+
+    public synchronized boolean isWaitingQueueEmpty() {
+        return waitingQueue.isEmpty();
+    }
+
+    public synchronized void customerLeft() {
+        totalCustomersLeft++;
+        notifyAll(); // Notify all waiting threads that a customer has left
+    }
+
+    public synchronized int getTotalCustomersArrived() {
+        return totalCustomersArrived;
+    }
+
+    public synchronized int getTotalCustomersServed() {
+        return totalCustomersServed;
+    }
+
+    public synchronized int getTotalCustomersLeft() {
+        return totalCustomersLeft;
+    }
+
+    public synchronized double getAverageServiceTime() {
+        return totalCustomersServed == 0 ? 0 : (double) totalServiceTime / totalCustomersServed;
+    }
+
+}
+package com.example.queue;
+
+import com.example.GrocerySimulator;
+import com.example.model.Customer;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
+
+public class GroceryQueues extends Queues {
     public final ArrayList<Queue<Customer>> queues;
     public final Queue<Customer> waitingQueue;
     private final int maxQueueLength;
@@ -293,7 +452,7 @@ public class GroceryQueues {
         }
 
         Customer customer = queues.get(queueIndex).poll();
-        if (customer != null) {
+         if (customer != null) {
             totalServiceTime += customer.getServiceTime();
             totalCustomersServed++;
         }
@@ -303,6 +462,7 @@ public class GroceryQueues {
     public synchronized boolean isQueueEmpty(int queueIndex) {
         return queues.get(queueIndex).isEmpty();
     }
+
     public synchronized boolean isWaitingQueueEmpty() {
         return waitingQueue.isEmpty();
     }
@@ -335,6 +495,14 @@ public class GroceryQueues {
             }
 
             Customer customer = waitingQueue.poll();
+            long waiting_time_of_customer = System.currentTimeMillis() - customer.getArrivalTime();
+            if (waiting_time_of_customer >= GrocerySimulator.maximum_waiting_time_in_waiting_queue) {
+                customer.setLeftUnserved(true);
+                customerLeft();
+                continue;
+            }
+
+
             if (customer != null) {
                 int minQueueSize = Integer.MAX_VALUE;
                 int chosenQueueIndex = -1;
@@ -356,5 +524,63 @@ public class GroceryQueues {
                 }
             }
         }
+    }
+}
+package com.example.queue;
+
+import com.example.GrocerySimulator;
+import com.example.model.Customer;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
+
+abstract public class Queues  {
+    private int totalCustomersArrived = 0;
+    private int totalCustomersServed = 0;
+    private int totalCustomersLeft = 0;
+    private long totalServiceTime = 0;
+
+
+    public Queues() {
+
+    }
+
+    public synchronized void addCustomer(Customer customer) {
+    }
+
+    public synchronized Customer getNextCustomer(int queueIndex) throws InterruptedException {
+        return null;
+    }
+
+    public synchronized boolean isQueueEmpty(int queueIndex) {
+        return false;
+    }
+
+    public synchronized boolean isWaitingQueueEmpty() {
+        return false;
+    }
+
+    public synchronized void customerLeft() {
+    }
+
+    public synchronized int getTotalCustomersArrived() {
+        return totalCustomersArrived;
+    }
+
+    public synchronized int getTotalCustomersServed() {
+        return totalCustomersServed;
+    }
+
+    public synchronized int getTotalCustomersLeft() {
+        return totalCustomersLeft;
+    }
+
+    public synchronized double getAverageServiceTime() {
+        return totalCustomersServed == 0 ? 0 : (double) totalServiceTime / totalCustomersServed;
+    }
+
+    public synchronized void distributeCustomers() throws InterruptedException {
+
     }
 }

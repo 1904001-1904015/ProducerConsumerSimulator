@@ -1,12 +1,12 @@
 package com.example.distributor;
 
-import com.example.queue.GroceryQueues;
+import com.example.queue.Queues;
 
 public class Distributor implements Runnable {
-    private final GroceryQueues groceryQueues;
+    private final Queues groceryQueues;
     private volatile boolean shutdownRequested = false;
 
-    public Distributor(GroceryQueues groceryQueues) {
+    public Distributor(Queues groceryQueues) {
         this.groceryQueues = groceryQueues;
     }
 

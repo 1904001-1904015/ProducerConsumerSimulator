@@ -1,15 +1,15 @@
 package com.example.consumer;
 
 import com.example.model.Customer;
-import com.example.queue.GroceryQueues;
+import com.example.queue.Queues;
 
-public class Consumer implements Runnable {
-    private final GroceryQueues groceryQueues;
+public class GroceryConsumer implements Runnable {
+    private final Queues groceryQueues;
     private final int queueIndex;
     private boolean shutdownRequested = false;
-    private Thread distributorThread;
+    private final Thread distributorThread;
 
-    public Consumer(GroceryQueues groceryQueues, int queueIndex, Thread distributorThread) {
+    public GroceryConsumer(Queues groceryQueues, int queueIndex, Thread distributorThread) {
         this.groceryQueues = groceryQueues;
         this.queueIndex = queueIndex;
         this.distributorThread = distributorThread;
@@ -32,6 +32,7 @@ public class Consumer implements Runnable {
                         // Busy waiting
                     }
                     customer.setServed(true); // Mark the customer as served
+                    System.out.println("Customer served: " + customer.getCustomerId()+" at queue "+(queueIndex+1));
                 } else {
                     Thread.sleep(100); // Short wait to avoid busy waiting
                 }

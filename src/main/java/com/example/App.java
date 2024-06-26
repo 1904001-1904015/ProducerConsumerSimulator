@@ -2,18 +2,31 @@ package com.example;
 
 import com.example.consumer.Consumer;
 import com.example.distributor.Distributor;
+import com.example.model.Customer;
 import com.example.producer.Producer;
 import com.example.queue.GroceryQueues;
 
 public class App {
+
+    private static final int scale_down = 1000;
+    private static final int millisecondsInSecond = 1000/ scale_down;
+    private static final int millisecondsInMinute = 60 * millisecondsInSecond;
+    private static final int millisecondsInHour = 60 * millisecondsInMinute;
+
+
+    public static final int numberOfQueues = 3;
+    public static final int maxQueueLength = 2;
+    public static final int minimumServiceTime = 60*millisecondsInSecond;
+    public static final int maximumServiceTime = 300*millisecondsInSecond;
+    public static final int minimumArrivalTime = 20*millisecondsInSecond;
+    public static final int maximumArrivalTime = 60*millisecondsInSecond;
+    public static final double maximum_waiting_time_in_waiting_queue = 10*millisecondsInSecond;
+    public static final double simulationDurationMinutes = 2*millisecondsInHour;
+
+
+
     public static void main(String[] args) {
-        int numberOfQueues = 3;
-        int maxQueueLength = 5;
-        int minimumServiceTime = 60;
-        int maximumServiceTime = 3000;
-        int minimumArrivalTime = 2;
-        int maximumArrivalTime = 6;
-        double simulationDurationMinutes = 5 / 60.0;
+        System.out.println("Starting simulation... " + simulationDurationMinutes);
 
         GroceryQueues groceryQueues = new GroceryQueues(numberOfQueues, maxQueueLength);
 
@@ -21,23 +34,22 @@ public class App {
         Thread producerThread = new Thread(producer);
         Consumer[] consumers = new Consumer[numberOfQueues];
         Thread[] consumerThreads = new Thread[numberOfQueues];
+        Distributor distributor = new Distributor(groceryQueues);
+        Thread distributorThread = new Thread(distributor);
 
+        distributorThread.start();
         for (int i = 0; i < numberOfQueues; i++) {
-            consumers[i] = new Consumer(groceryQueues, i);
+            consumers[i] = new Consumer(groceryQueues, i, distributorThread);
             consumerThreads[i] = new Thread(consumers[i]);
             consumerThreads[i].start();
         }
 
         producerThread.start();
 
-        Distributor distributor = new Distributor(groceryQueues);
-        Thread distributorThread = new Thread(distributor);
-        distributorThread.start();
-
         try {
-            Thread.sleep((long) (simulationDurationMinutes * 60 * 1000));
+            Thread.sleep((long) (simulationDurationMinutes));
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.currentThread().interrupt();
         }
 
         producerThread.interrupt();
@@ -54,7 +66,7 @@ public class App {
                 consumerThread.join();
             }
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.currentThread().interrupt();
         }
 
         System.out.println("Simulation completed.");

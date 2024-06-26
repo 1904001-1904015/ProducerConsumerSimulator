@@ -35,10 +35,8 @@ public class Producer implements Runnable {
                 Thread.sleep(arrivalTime);
                 System.out.println("Customer arrived: " + customer.getCustomerId());
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt(); // Set the interrupted flag
+                Thread.currentThread().interrupt(); // Acknowledge the interrupt
             }
         }
-        System.out.println("No more customers will arrive.");
-        System.out.println("================================================================================================");
     }
 }

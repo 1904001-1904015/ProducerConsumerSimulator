@@ -1,6 +1,5 @@
 package com.example.distributor;
 
-import com.example.model.Customer;
 import com.example.queue.GroceryQueues;
 
 public class Distributor implements Runnable {
@@ -15,17 +14,6 @@ public class Distributor implements Runnable {
         shutdownRequested = true;
     }
 
-//    @Override
-//    public void run() {
-//        try {
-//            while (!shutdownRequested) {
-//                groceryQueues.distributeCustomers();
-//            }
-//        } catch (InterruptedException e) {
-//            Thread.currentThread().interrupt();
-//        }
-//        System.out.println("Distributor finished processing remaining customers.");
-//    }
     @Override
     public void run() {
         while (!shutdownRequested || !groceryQueues.isWaitingQueueEmpty()) {
@@ -36,6 +24,5 @@ public class Distributor implements Runnable {
                 shutdownRequested = true; // Set the shutdown flag
             }
         }
-        System.out.println("Distributor finished processing remaining customers.");
     }
 }

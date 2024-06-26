@@ -1,55 +1,44 @@
 package com.example.producer;
 
 import com.example.model.Customer;
-import com.example.queue.BankQueue;
+import com.example.queue.GroceryQueues;
 
 import java.util.Random;
 
 public class Producer implements Runnable {
-    private final BankQueue bankQueue;
+    private final GroceryQueues groceryQueues;
     private final Random random;
+    private final int minimumArrivalTime;
+    private final int maximumArrivalTime;
+    private final int minimumServiceTime;
+    private final int maximumServiceTime;
 
-    public Producer(BankQueue bankQueue) {
-        this.bankQueue = bankQueue;
+    public Producer(GroceryQueues groceryQueues, int minimumArrivalTime, int maximumArrivalTime, int minimumServiceTime, int maximumServiceTime) {
+        this.groceryQueues = groceryQueues;
         this.random = new Random();
+        this.minimumArrivalTime = minimumArrivalTime;
+        this.maximumArrivalTime = maximumArrivalTime;
+        this.minimumServiceTime = minimumServiceTime;
+        this.maximumServiceTime = maximumServiceTime;
     }
 
     @Override
     public void run() {
-        while (true) {
-            int arrivalTime = getPoissonRandom(30); // Mean inter-arrival time of 30 seconds (adjust as needed)
-            int serviceTime = random.nextInt(241) + 60;
-
-            Customer customer = new Customer(serviceTime);
-            boolean added = bankQueue.addCustomer(customer);
-            System.out.println("Time: " + System.currentTimeMillis() + " Queue size: " + bankQueue.getQueueSize());
-            if (added) {
-                System.out.println("Customer arrived at time " + arrivalTime + " with service time " + serviceTime);
-            } else {
-                System.out.println("Customer arrived at time " + arrivalTime + " but queue is full.");
-            }
-
+        while (!Thread.currentThread().isInterrupted()) {
             try {
-                Thread.sleep(arrivalTime * 1000L); // Sleep for arrival time in milliseconds
+                int arrivalTime = random.nextInt(maximumArrivalTime - minimumArrivalTime + 1) + minimumArrivalTime;
+                int serviceTime = random.nextInt(maximumServiceTime - minimumServiceTime + 1) + minimumServiceTime;
+
+                Customer customer = new Customer(serviceTime);
+                groceryQueues.addCustomer(customer);
+
+                Thread.sleep(arrivalTime);
+                System.out.println("Customer arrived: " + customer.getCustomerId());
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt(); // Set the interrupted flag
             }
         }
+        System.out.println("No more customers will arrive.");
+        System.out.println("================================================================================================");
     }
-
-    private int getPoissonRandom(double mean) {
-        double lambda = 1.0 / mean;  // Calculate λ
-        double p = 1.0;              // Initialize p
-        int k = 0;                   // Initialize k (number of events)
-        Random r = new Random();     // Random number generator
-        double L = Math.exp(-lambda); // Calculate e^(-λ)
-
-        do {
-            k++;                      // Increment k
-            p *= r.nextDouble();     // Generate a random number in (0, 1) and update p
-        } while (p > L);             // Continue until p <= e^(-λ)
-
-        return k - 1;                // Return the number of events - 1
-    }
-
 }

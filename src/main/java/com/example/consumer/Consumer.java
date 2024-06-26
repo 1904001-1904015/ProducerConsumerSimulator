@@ -1,36 +1,41 @@
 package com.example.consumer;
 
 import com.example.model.Customer;
-import com.example.queue.BankQueue;
-import java.util.UUID;
+import com.example.queue.GroceryQueues;
 
 public class Consumer implements Runnable {
-    private final String consumerId; // Randomly generated ID for each consumer
-    private final BankQueue bankQueue;
+    private final GroceryQueues groceryQueues;
+    private final int queueIndex;
+    private volatile boolean shutdownRequested = false;
 
-    public Consumer(BankQueue bankQueue) {
-        this.consumerId = UUID.randomUUID().toString(); // Generate random UUID as consumer ID
-        this.bankQueue = bankQueue;
+    public Consumer(GroceryQueues groceryQueues, int queueIndex) {
+        this.groceryQueues = groceryQueues;
+        this.queueIndex = queueIndex;
+    }
+
+    public void requestShutdown() {
+        shutdownRequested = true;
     }
 
     @Override
     public void run() {
-        while (true) {
-            Customer customer = bankQueue.getNextCustomer();
+        while (!shutdownRequested || !groceryQueues.isQueueEmpty(queueIndex) || !groceryQueues.isWaitingQueueEmpty()) {
+            try {
+                Customer customer = groceryQueues.getNextCustomer(queueIndex);
+                if (customer != null) {
+                    Thread.sleep(customer.getServiceTime());
+                    customer.setServed(true); // Mark the customer as served
+                    System.out.println("============================================================================================================");
+                    System.out.println("Customer served: " + customer.getCustomerId() + " by the server: " + (queueIndex + 1));
+                } else {
 
-            if (customer != null) {
-                System.out.println("Consumer " + consumerId + " is serving customer with service time " + customer.getServiceTime());
-
-                try {
-                    // Simulate serving the customer for the specified service time
-                    Thread.sleep(customer.getServiceTime() *10L); // Sleep for service time in seconds
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    Thread.sleep(100); // Short wait to avoid busy waiting
                 }
-
-                // Mark the customer as served
-                customer.setServed(true);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Acknowledge the interrupt
+                shutdownRequested = true; // Set the shutdown flag
             }
         }
+        System.out.println("Consumer " + (queueIndex + 1) + " finished processing remaining customers.");
     }
 }

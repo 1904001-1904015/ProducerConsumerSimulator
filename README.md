@@ -15,3 +15,7 @@ This project simulates a bank queue system where customers arrive and are served
 ## Components
 
 ### 1. BankQueue
+### 2. Customer
+### 3. Producer
+### 4. Consumer
+

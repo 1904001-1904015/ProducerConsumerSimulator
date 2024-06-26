@@ -1,12 +1,11 @@
 package com.example;
 
-import com.example.consumer.Consumer;
+import com.example.consumer.GroceryConsumer;
 import com.example.distributor.Distributor;
-import com.example.model.Customer;
 import com.example.producer.Producer;
 import com.example.queue.GroceryQueues;
 
-public class App {
+public class GrocerySimulator {
 
     private static final int scale_down = 1000;
     private static final int millisecondsInSecond = 1000/ scale_down;
@@ -32,15 +31,15 @@ public class App {
 
         Producer producer = new Producer(groceryQueues, minimumArrivalTime, maximumArrivalTime, minimumServiceTime, maximumServiceTime);
         Thread producerThread = new Thread(producer);
-        Consumer[] consumers = new Consumer[numberOfQueues];
+        GroceryConsumer[] groceryConsumers = new GroceryConsumer[numberOfQueues];
         Thread[] consumerThreads = new Thread[numberOfQueues];
         Distributor distributor = new Distributor(groceryQueues);
         Thread distributorThread = new Thread(distributor);
 
         distributorThread.start();
         for (int i = 0; i < numberOfQueues; i++) {
-            consumers[i] = new Consumer(groceryQueues, i, distributorThread);
-            consumerThreads[i] = new Thread(consumers[i]);
+            groceryConsumers[i] = new GroceryConsumer(groceryQueues, i, distributorThread);
+            consumerThreads[i] = new Thread(groceryConsumers[i]);
             consumerThreads[i].start();
         }
 

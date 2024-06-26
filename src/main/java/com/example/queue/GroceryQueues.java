@@ -1,13 +1,13 @@
 package com.example.queue;
 
-import com.example.App;
+import com.example.GrocerySimulator;
 import com.example.model.Customer;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Queue;
 
-public class GroceryQueues {
+public class GroceryQueues extends Queues {
     public final ArrayList<Queue<Customer>> queues;
     public final Queue<Customer> waitingQueue;
     private final int maxQueueLength;
@@ -81,7 +81,7 @@ public class GroceryQueues {
 
             Customer customer = waitingQueue.poll();
             long waiting_time_of_customer = System.currentTimeMillis() - customer.getArrivalTime();
-            if (waiting_time_of_customer >= App.maximum_waiting_time_in_waiting_queue) {
+            if (waiting_time_of_customer >= GrocerySimulator.maximum_waiting_time_in_waiting_queue) {
                 customer.setLeftUnserved(true);
                 customerLeft();
                 continue;

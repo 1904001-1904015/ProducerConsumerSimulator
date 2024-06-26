@@ -1,0 +1,340 @@
+package com.example;
+
+import com.example.consumer.Consumer;
+import com.example.distributor.Distributor;
+import com.example.producer.Producer;
+import com.example.queue.GroceryQueues;
+
+public class App {
+    public static void main(String[] args) {
+        int numberOfQueues = 10;
+        int maxQueueLength = 5;
+        int minimumServiceTime = 60;
+        int maximumServiceTime = 300;
+        int minimumArrivalTime = 2;
+        int maximumArrivalTime = 20;
+        double simulationDurationMinutes = 5 / 60.0;
+
+        GroceryQueues groceryQueues = new GroceryQueues(numberOfQueues, maxQueueLength);
+
+        Producer producer = new Producer(groceryQueues, minimumArrivalTime, maximumArrivalTime, minimumServiceTime, maximumServiceTime);
+        Thread producerThread = new Thread(producer);
+        Consumer[] consumers = new Consumer[numberOfQueues];
+        Thread[] consumerThreads = new Thread[numberOfQueues];
+
+        for (int i = 0; i < numberOfQueues; i++) {
+            consumers[i] = new Consumer(groceryQueues, i);
+            consumerThreads[i] = new Thread(consumers[i]);
+            consumerThreads[i].start();
+        }
+
+        producerThread.start();
+
+        Distributor distributor = new Distributor(groceryQueues);
+        Thread distributorThread = new Thread(distributor);
+        distributorThread.start();
+
+        try {
+            Thread.sleep((long) (simulationDurationMinutes * 60 * 1000));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        producerThread.interrupt();
+        distributor.requestShutdown();
+        distributorThread.interrupt();
+        for (Thread consumerThread : consumerThreads) {
+            consumerThread.interrupt();
+        }
+
+        try {
+            producerThread.join();
+            distributorThread.join();
+            for (Thread consumerThread : consumerThreads) {
+                consumerThread.join();
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("Simulation completed.");
+        System.out.println("Total customers arrived: " + groceryQueues.getTotalCustomersArrived());
+        System.out.println("Total customers served: " + groceryQueues.getTotalCustomersServed());
+        System.out.println("Total customers left without being served: " + groceryQueues.getTotalCustomersLeft());
+        System.out.println("Average service time: " + groceryQueues.getAverageServiceTime());
+    }
+}
+package com.example.consumer;
+
+import com.example.model.Customer;
+import com.example.queue.GroceryQueues;
+
+public class Consumer implements Runnable {
+    private final GroceryQueues groceryQueues;
+    private final int queueIndex;
+    private volatile boolean shutdownRequested = false;
+
+    public Consumer(GroceryQueues groceryQueues, int queueIndex) {
+        this.groceryQueues = groceryQueues;
+        this.queueIndex = queueIndex;
+    }
+
+    public void requestShutdown() {
+        shutdownRequested = true;
+    }
+
+    @Override
+    public void run() {
+        while (!shutdownRequested || !groceryQueues.isQueueEmpty(queueIndex) || !groceryQueues.isWaitingQueueEmpty()) {
+            try {
+                Customer customer = groceryQueues.getNextCustomer(queueIndex);
+                if (customer != null) {
+                    Thread.sleep(customer.getServiceTime());
+                    customer.setServed(true); // Mark the customer as served
+                    System.out.println("Customer served: " + customer.getCustomerId() + " by the server: " + (queueIndex + 1));
+                } else {
+                    Thread.sleep(100); // Short wait to avoid busy waiting
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Acknowledge the interrupt
+                shutdownRequested = true; // Set the shutdown flag
+            }
+        }
+        System.out.println("Consumer " + (queueIndex + 1) + " finished processing remaining customers.");
+    }
+}
+package com.example.distributor;
+
+import com.example.model.Customer;
+import com.example.queue.GroceryQueues;
+
+public class Distributor implements Runnable {
+    private final GroceryQueues groceryQueues;
+    private volatile boolean shutdownRequested = false;
+
+    public Distributor(GroceryQueues groceryQueues) {
+        this.groceryQueues = groceryQueues;
+    }
+
+    public void requestShutdown() {
+        shutdownRequested = true;
+    }
+
+//    @Override
+//    public void run() {
+//        try {
+//            while (!shutdownRequested) {
+//                groceryQueues.distributeCustomers();
+//            }
+//        } catch (InterruptedException e) {
+//            Thread.currentThread().interrupt();
+//        }
+//        System.out.println("Distributor finished processing remaining customers.");
+//    }
+    @Override
+    public void run() {
+        while (!shutdownRequested || !groceryQueues.isWaitingQueueEmpty()) {
+            try {
+                groceryQueues.distributeCustomers();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Acknowledge the interrupt
+                shutdownRequested = true; // Set the shutdown flag
+            }
+        }
+        System.out.println("Distributor finished processing remaining customers.");
+    }
+}
+package com.example.model;
+
+import java.util.UUID;
+
+public class Customer {
+    private final String customerId;
+    private final long arrivalTime;
+    private final int serviceTime;
+    private boolean served;
+    private boolean leftUnserved;
+
+    public Customer(int serviceTime) {
+        this.arrivalTime = System.currentTimeMillis();
+        this.serviceTime = serviceTime;
+        this.served = false;
+        this.leftUnserved = false;
+        this.customerId = UUID.randomUUID().toString();
+    }
+
+    public long getArrivalTime() {
+        return arrivalTime;
+    }
+
+    public int getServiceTime() {
+        return serviceTime;
+    }
+
+    public boolean isServed() {
+        return served;
+    }
+
+    public void setServed(boolean served) {
+        this.served = served;
+    }
+
+    public boolean isLeftUnserved() {
+        return leftUnserved;
+    }
+
+    public void setLeftUnserved(boolean leftUnserved) {
+        this.leftUnserved = leftUnserved;
+    }
+
+    public String getCustomerId() {
+        return customerId;
+    }
+}
+package com.example.producer;
+
+import com.example.model.Customer;
+import com.example.queue.GroceryQueues;
+
+import java.util.Random;
+
+public class Producer implements Runnable {
+    private final GroceryQueues groceryQueues;
+    private final Random random;
+    private final int minimumArrivalTime;
+    private final int maximumArrivalTime;
+    private final int minimumServiceTime;
+    private final int maximumServiceTime;
+
+    public Producer(GroceryQueues groceryQueues, int minimumArrivalTime, int maximumArrivalTime, int minimumServiceTime, int maximumServiceTime) {
+        this.groceryQueues = groceryQueues;
+        this.random = new Random();
+        this.minimumArrivalTime = minimumArrivalTime;
+        this.maximumArrivalTime = maximumArrivalTime;
+        this.minimumServiceTime = minimumServiceTime;
+        this.maximumServiceTime = maximumServiceTime;
+    }
+
+    @Override
+    public void run() {
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                int arrivalTime = random.nextInt(maximumArrivalTime - minimumArrivalTime + 1) + minimumArrivalTime;
+                int serviceTime = random.nextInt(maximumServiceTime - minimumServiceTime + 1) + minimumServiceTime;
+
+                Customer customer = new Customer(serviceTime);
+                groceryQueues.addCustomer(customer);
+
+                Thread.sleep(arrivalTime);
+                System.out.println("Customer arrived: " + customer.getCustomerId());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Set the interrupted flag
+            }
+        }
+        System.out.println("No more customers will arrive.");
+        System.out.println("================================================================================================");
+    }
+}
+package com.example.queue;
+
+import com.example.model.Customer;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
+
+public class GroceryQueues {
+    private final ArrayList<Queue<Customer>> queues;
+    private final Queue<Customer> waitingQueue;
+    private final int maxQueueLength;
+    private int totalCustomersArrived = 0;
+    private int totalCustomersServed = 0;
+    private int totalCustomersLeft = 0;
+    private long totalServiceTime = 0;
+
+    public GroceryQueues(int numberOfQueues, int maxQueueLength) {
+        this.maxQueueLength = maxQueueLength;
+        this.queues = new ArrayList<>(numberOfQueues);
+        this.waitingQueue = new LinkedList<>();
+        for (int i = 0; i < numberOfQueues; i++) {
+            queues.add(new LinkedList<>());
+        }
+    }
+
+    public synchronized void addCustomer(Customer customer) {
+        totalCustomersArrived++;
+        waitingQueue.offer(customer);
+        notifyAll(); // Notify distributor thread that a new customer has been added
+    }
+
+    public synchronized Customer getNextCustomer(int queueIndex) throws InterruptedException {
+        while (queues.get(queueIndex).isEmpty() && waitingQueue.isEmpty()) {
+            wait(); // Wait until a customer is available
+        }
+
+        Customer customer = queues.get(queueIndex).poll();
+        if (customer != null) {
+            totalCustomersServed++;
+            totalServiceTime += customer.getServiceTime();
+        }
+        return customer;
+    }
+
+    public synchronized boolean isQueueEmpty(int queueIndex) {
+        return queues.get(queueIndex).isEmpty();
+    }
+    public synchronized boolean isWaitingQueueEmpty() {
+        return waitingQueue.isEmpty();
+    }
+
+    public synchronized void customerLeft() {
+        totalCustomersLeft++;
+        notifyAll(); // Notify all waiting threads that a customer has left
+    }
+
+    public synchronized int getTotalCustomersArrived() {
+        return totalCustomersArrived;
+    }
+
+    public synchronized int getTotalCustomersServed() {
+        return totalCustomersServed;
+    }
+
+    public synchronized int getTotalCustomersLeft() {
+        return totalCustomersLeft;
+    }
+
+    public synchronized double getAverageServiceTime() {
+        return totalCustomersServed == 0 ? 0 : (double) totalServiceTime / totalCustomersServed;
+    }
+
+    public synchronized void distributeCustomers() throws InterruptedException {
+        while (true) {
+            while (waitingQueue.isEmpty()) {
+                wait(); // Wait until a customer is available in the waiting queue
+            }
+
+            Customer customer = waitingQueue.poll();
+            if (customer != null) {
+                int minQueueSize = Integer.MAX_VALUE;
+                int chosenQueueIndex = -1;
+
+                for (int i = 0; i < queues.size(); i++) {
+                    int currentQueueSize = queues.get(i).size();
+                    if (currentQueueSize < minQueueSize) {
+                        minQueueSize = currentQueueSize;
+                        chosenQueueIndex = i;
+                    }
+                }
+
+                if (chosenQueueIndex != -1 && minQueueSize < maxQueueLength) {
+                    queues.get(chosenQueueIndex).offer(customer);
+                    notifyAll(); // Notify all waiting threads that a customer has been moved from the waiting queue
+                } else {
+                    waitingQueue.offer(customer); // Put back to waiting queue if no space is available
+                    break;
+                }
+            }
+        }
+    }
+}

@@ -6,11 +6,13 @@ import com.example.queue.GroceryQueues;
 public class Consumer implements Runnable {
     private final GroceryQueues groceryQueues;
     private final int queueIndex;
-    private volatile boolean shutdownRequested = false;
+    private boolean shutdownRequested = false;
+    private Thread distributorThread;
 
-    public Consumer(GroceryQueues groceryQueues, int queueIndex) {
+    public Consumer(GroceryQueues groceryQueues, int queueIndex, Thread distributorThread) {
         this.groceryQueues = groceryQueues;
         this.queueIndex = queueIndex;
+        this.distributorThread = distributorThread;
     }
 
     public void requestShutdown() {
@@ -19,23 +21,25 @@ public class Consumer implements Runnable {
 
     @Override
     public void run() {
-        while (!shutdownRequested || !groceryQueues.isQueueEmpty(queueIndex) || !groceryQueues.isWaitingQueueEmpty()) {
+        while (!shutdownRequested || !groceryQueues.isQueueEmpty(queueIndex) || this.distributorThread.isAlive()) {
             try {
                 Customer customer = groceryQueues.getNextCustomer(queueIndex);
                 if (customer != null) {
-                    Thread.sleep(customer.getServiceTime());
+                    // Thread.sleep(customer.getServiceTime());
+                    // as the Thread might be interupted, that's why Thread.sleep is replaced with the following code
+                    long endTime = System.currentTimeMillis()+customer.getServiceTime();
+                    while(System.currentTimeMillis()<endTime){
+                        // Busy waiting
+                    }
                     customer.setServed(true); // Mark the customer as served
-                    System.out.println("============================================================================================================");
-                    System.out.println("Customer served: " + customer.getCustomerId() + " by the server: " + (queueIndex + 1));
                 } else {
-
                     Thread.sleep(100); // Short wait to avoid busy waiting
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt(); // Acknowledge the interrupt
                 shutdownRequested = true; // Set the shutdown flag
+                System.out.println("Consumer "+ (queueIndex+1)+" thread interrupted.");
             }
         }
-        System.out.println("Consumer " + (queueIndex + 1) + " finished processing remaining customers.");
     }
 }

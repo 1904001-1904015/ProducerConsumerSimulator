@@ -1,5 +1,6 @@
 package com.example.queue;
 
+import com.example.App;
 import com.example.model.Customer;
 
 import java.util.ArrayList;
@@ -7,8 +8,8 @@ import java.util.LinkedList;
 import java.util.Queue;
 
 public class GroceryQueues {
-    private final ArrayList<Queue<Customer>> queues;
-    private final Queue<Customer> waitingQueue;
+    public final ArrayList<Queue<Customer>> queues;
+    public final Queue<Customer> waitingQueue;
     private final int maxQueueLength;
     private int totalCustomersArrived = 0;
     private int totalCustomersServed = 0;
@@ -36,9 +37,9 @@ public class GroceryQueues {
         }
 
         Customer customer = queues.get(queueIndex).poll();
-        if (customer != null) {
-            totalCustomersServed++;
+         if (customer != null) {
             totalServiceTime += customer.getServiceTime();
+            totalCustomersServed++;
         }
         return customer;
     }
@@ -46,6 +47,7 @@ public class GroceryQueues {
     public synchronized boolean isQueueEmpty(int queueIndex) {
         return queues.get(queueIndex).isEmpty();
     }
+
     public synchronized boolean isWaitingQueueEmpty() {
         return waitingQueue.isEmpty();
     }
@@ -78,6 +80,14 @@ public class GroceryQueues {
             }
 
             Customer customer = waitingQueue.poll();
+            long waiting_time_of_customer = System.currentTimeMillis() - customer.getArrivalTime();
+            if (waiting_time_of_customer >= App.maximum_waiting_time_in_waiting_queue) {
+                customer.setLeftUnserved(true);
+                customerLeft();
+                continue;
+            }
+
+
             if (customer != null) {
                 int minQueueSize = Integer.MAX_VALUE;
                 int chosenQueueIndex = -1;
